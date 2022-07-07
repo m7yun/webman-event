@@ -34,7 +34,7 @@ class Event
      */
     public static function on($event_name, callable $callback): int
     {
-        $is_prefix_name = $event_name[strlen($event_name)-1] === '*';
+        $is_prefix_name = $event_name[strlen($event_name) - 1] === '*';
         if ($is_prefix_name) {
             static::$prefixEventMap[substr($event_name, 0, -1)][++static::$id] = $callback;
         } else {
@@ -58,24 +58,36 @@ class Event
     }
 
     /**
+     * 是否存在监听
+     *
+     * @param $event_name
+     * @return bool
+     */
+    public static function hasListener($event_name): bool
+    {
+        $callbacks = static::$eventMap[$event_name] ?? [];
+        return count($callbacks) > 0;
+    }
+
+    /**
      * @param $event_name
      * @param $data
-     * @return int
+     * @param bool $once 只获取一个有效返回值
+     * @return mixed
      */
-    public static function emit($event_name, $data): int
+    public static function emit($event_name, $data = null, bool $once = false)
     {
-        $success_count = 0;
-        $callbacks = static::$eventMap[$event_name]??[];
+        $result = [];
+        $callbacks = static::$eventMap[$event_name] ?? [];
         foreach (static::$prefixEventMap as $name => $callback_items) {
             if (strpos($event_name, $name) === 0) {
                 $callbacks = array_merge($callbacks, $callback_items);
             }
         }
         ksort($callbacks);
-        foreach ($callbacks as $callback) {
+        foreach ($callbacks as $key => $callback) {
             try {
-                $ret = $callback($data, $event_name);
-                $success_count++;
+                $result[$key] = $callback($data, $event_name);
             } catch (\Throwable $e) {
                 if (!static::$logger && is_callable('\support\Log::error')) {
                     static::$logger = Log::channel();
@@ -85,11 +97,11 @@ class Event
                 }
                 continue;
             }
-            if ($ret === false) {
-                return $success_count;
+            if (false === $result[$key] || (!is_null($result[$key]) && $once)) {
+                break;
             }
         }
-        return $success_count;
+        return $once ? end($result) : $result;
     }
 
     /**
@@ -105,7 +117,7 @@ class Event
         }
         foreach (static::$prefixEventMap as $event_name => $callback_items) {
             foreach ($callback_items as $id => $callback_item) {
-                $callbacks[$id] = [$event_name.'*', $callback_item];
+                $callbacks[$id] = [$event_name . '*', $callback_item];
             }
         }
         ksort($callbacks);
