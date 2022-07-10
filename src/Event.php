@@ -86,17 +86,7 @@ class Event
         }
         ksort($callbacks);
         foreach ($callbacks as $key => $callback) {
-            try {
-                $result[$key] = $callback($data, $event_name);
-            } catch (\Throwable $e) {
-                if (!static::$logger && is_callable('\support\Log::error')) {
-                    static::$logger = Log::channel();
-                }
-                if (static::$logger) {
-                    static::$logger->error($e);
-                }
-                continue;
-            }
+            $result[$key] = $callback($data, $event_name);
             if (false === $result[$key] || (!is_null($result[$key]) && $once)) {
                 break;
             }
